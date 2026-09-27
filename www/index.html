@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="Files Transfers For WebRTC">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="author" content="3998443@qq.com">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="shortcut icon" href="#"/>
+  <base target="_blank">
+
+  <title>Transfer files</title>
+  <link rel="stylesheet" href="./css/bootstrap.css" />
+  <link rel="stylesheet" href="./css/app.css" />
+  <style>
+    .qr-container {
+      text-align: center;
+      margin-top: 16px;
+    }
+    #qrCodeCanvas {
+      border: 4px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+      background: #fff;
+    }
+    .exclusive-link-box {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+    }
+    .exclusive-link-box input {
+      width: 260px;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    .code-section {
+      display: none;
+      margin-top: 16px;
+      text-align: center;
+    }
+    .code-display {
+      font-size: clamp(1.8rem, 6vw, 2.5rem);
+      font-weight: bold;
+      letter-spacing: clamp(4px, 2vw, 8px);
+      color: #0d6efd;
+      margin: 12px 0;
+    }
+    .connected-peer {
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      color: #166534;
+      font-weight: 600;
+      text-align: center;
+    }
+    @media (max-width: 640px) {
+      .qr-container {
+        margin-top: 12px;
+      }
+      #qrCodeCanvas {
+        max-width: 180px;
+        height: auto !important;
+      }
+      .exclusive-link-box {
+        flex-direction: column;
+        width: 100%;
+      }
+      .exclusive-link-box input {
+        width: 100% !important;
+        max-width: 240px;
+      }
+      .code-section {
+        padding: 0 8px;
+      }
+      .connected-peer {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+      }
+    }
+    @media (min-width: 641px) {
+      .exclusive-link-box {
+        flex-direction: row;
+      }
+      .exclusive-link-box input {
+        width: 260px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">WebRTC + Rust</p>
+        <h1>LAN File Transfer Console</h1>
+        <p class="hero-subtitle">Share files privately using a 6-digit pairing code.</p>
+      </div>
+      <a class="github-link" href="https://github.com/bayuemu/lan-files-transfers" target="_blank" rel="noopener noreferrer" aria-label="GitHub Repository">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-github" viewBox="0 0 16 16">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/>
+        </svg>
+      </a>
+    </header>
+
+    <section class="control-panel">
+      <div class="card shadow-sm">
+        <h3 class="card-title text-center">Receive Files</h3>
+        <p class="text-muted text-center">Get a 6-digit code to share with the sender.</p>
+        <button id="btnGenerateCode" class="btn btn-primary w-100" onclick="generateReceiveCode()">Generate Code</button>
+        <div id="receiveCodeDisplay" class="code-section">
+          <div class="code-display" id="codeDisplayValue">------</div>
+          <div class="qr-container">
+            <canvas id="qrCodeCanvas"></canvas>
+          </div>
+          <div class="exclusive-link-box">
+            <input type="text" id="exclusiveLinkInput" readonly value="">
+            <button class="btn btn-outline-secondary" onclick="copyExclusiveLink()">Copy Link</button>
+          </div>
+        </div>
+        <div id="connectedPeerInfo" class="connected-peer" style="display:none;"></div>
+      </div>
+      <div class="card shadow-sm">
+        <h3 class="card-title text-center">Send Files</h3>
+        <p class="text-muted text-center">Enter the receiver's 6-digit code.</p>
+        <div class="d-flex" style="gap: 8px;">
+          <input type="text" id="inputTargetCode" class="form-control text-center" placeholder="123456" maxlength="6" style="letter-spacing: 5px; font-weight: bold; flex:1;">
+          <button id="btnConnectTarget" class="btn btn-success" onclick="connectTargetCode()">Connect</button>
+        </div>
+        <div id="selectedPeerInfo" class="connected-peer" style="display:none; margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <main id="container" class="peer-grid">
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="js/main.js">
+  </script>
+
+
+</body>
+</html>
